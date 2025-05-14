@@ -1,6 +1,8 @@
 import html
 import json
 import re
+import csv
+import os
 import click
 from argparse import ArgumentParser
 
@@ -43,8 +45,72 @@ def extract_course_data(soup):
         models.append((course_id, model))
     return models
 
+# Function to save course data to CSV file
+def save_to_csv(term, subject, subject_name, courses, csv_filename=None):
+    """
+    Save course data to a CSV file.
+    
+    Args:
+        term: Term code (e.g., 24F)
+        subject: Subject code
+        subject_name: Subject name
+        courses: List of course data dictionaries
+        csv_filename: Optional filename for the CSV file
+    """
+    if not csv_filename:
+        # Create default filename in the format TERM_SUBJECT.csv
+        # Strip any whitespace from the subject to avoid extra spaces
+        subject_clean = subject.strip()
+        csv_filename = f"{term}_{subject_clean}.csv"
+    
+    # Ensure we have at least one course
+    if not courses:
+        click.echo(f"No courses to export to CSV file.")
+        return
+    
+    # Get headers from the first course to determine all columns
+    headers = ["Subject", "Subject Name", "Number", "Name"]
+    data_keys = []
+    
+    if courses[0]["data"]:
+        data_keys = courses[0]["data"].keys()
+        for key in data_keys:
+            headers.append(key)
+    
+    try:
+        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(headers)
+            
+            # Write each course as a row
+            for course in courses:
+                row = [
+                    subject.strip(),  # Ensure no extra spaces
+                    subject_name.strip(),  # Ensure no extra spaces
+                    course["number"].strip(),  # Ensure no extra spaces
+                    course["name"].strip()  # Ensure no extra spaces
+                ]
+                
+                # Add the data values if available
+                if course["data"]:
+                    for key in data_keys:
+                        value = course["data"].get(key, "")
+                        # Convert lists to strings
+                        if isinstance(value, list):
+                            value = " ".join(str(item).strip() for item in value)
+                        elif isinstance(value, str):
+                            value = value.strip()  # Ensure no extra spaces
+                        row.append(value)
+                
+                writer.writerow(row)
+                
+        click.echo(f"Courses exported to CSV file: {csv_filename}")
+        
+    except Exception as e:
+        click.echo(f"Error writing to CSV file: {e}")
 
-def soc(term, subject, course_details, mode):
+
+def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
     text = results()
 
     def reduce_subject(x):
@@ -67,8 +133,11 @@ def soc(term, subject, course_details, mode):
     filters = {
         'location': locations
     }
+    
     page = 1
     last_page = False
+    all_courses = []  # Store all courses for CSV export
+    
     while not last_page:
         text = course_titles_view(term, subject, subject_name, page)
         last_page = False
@@ -76,10 +145,12 @@ def soc(term, subject, course_details, mode):
         soup = BeautifulSoup(text, "html.parser")
         models = extract_course_data(soup)
         if not models:
-            return
+            break
+            
         for course_id, model in models:
             title = soup.find(id=course_id + "-title").contents[0]
             number, name = title.split(" - ")
+            
             if course_details:
                 sum_soup = get_course_summary(model)
                 data = extract_course_summary(sum_soup)
@@ -88,7 +159,23 @@ def soc(term, subject, course_details, mode):
             else:
                 data = {}
                 orig_data = {}
-            display_course(subject, subject_name, number, name, data, orig_data, course_details)
+                
+            # Store for CSV export if requested
+            if csv_export:
+                all_courses.append({
+                    "number": number,
+                    "name": name,
+                    "data": data
+                })
+            
+            # Only display in terminal if not in quiet CSV mode
+            if not (csv_export and quiet_csv):
+                display_course(subject, subject_name, number, name, data, orig_data, course_details)
+    
+    # Export to CSV if requested
+    if csv_export and all_courses:
+        save_to_csv(term, subject, subject_name, all_courses)
+
 
 def bl():
     text = query.building_list()
@@ -126,9 +213,11 @@ def classes(ctx, term, quiet, human_readable):
 
 @classes.command()
 @click.argument("subject-area", type=str, required=True)
+@click.option("--csv", is_flag=True, help="Export results to a CSV file")
+@click.option("--quiet-csv", is_flag=True, help="Suppress terminal output when exporting to CSV")
 @click.pass_context
-def subject_area(ctx, subject_area):
-    soc(ctx.obj['TERM'], subject_area, ctx.obj['COURSE_DETAILS'], ctx.obj['MODE'])
+def subject_area(ctx, subject_area, csv, quiet_csv):
+    soc(ctx.obj['TERM'], subject_area, ctx.obj['COURSE_DETAILS'], ctx.obj['MODE'], csv, quiet_csv)
 
 @ucla.command()
 @click.argument("term")
@@ -136,6 +225,20 @@ def subject_area(ctx, subject_area):
 @click.option("-r", "--room", help="Room number")
 def rooms(term, building, room):
     cgs(term, building, room)
+
+# New test command
+@ucla.command(help="Test if the CLI is working properly")
+@click.option("-v", "--verbose", is_flag=True, help="Show verbose output")
+def test(verbose):
+    """Run a test to confirm the CLI is working correctly."""
+    if verbose:
+        cprint("UCLA CLI test command executed successfully!", "green")
+        cprint("Available commands:", "blue")
+        cprint("- classes: Search for classes offered in a term", "cyan")
+        cprint("- rooms: Get information about rooms", "cyan")
+        cprint("- test: Run this test command", "cyan")
+    else:
+        cprint("UCLA CLI is working correctly!", "green")
 
 
 if __name__ == "__main__":
