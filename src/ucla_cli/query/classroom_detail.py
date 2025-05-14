@@ -1,7 +1,6 @@
 import requests
 
 def classroom_detail(term, building_code, room_code):
-    #url = "https://sa.ucla.edu/ro/Public/SOC/Results/ClassroomDetail?term=23F&classroom=KAPLAN++%7C++00348++"
     url = "https://sa.ucla.edu/ro/Public/SOC/Results/ClassroomDetail"
     params = {
         "term": term,

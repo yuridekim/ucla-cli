@@ -42,7 +42,7 @@ def course_titles_view(term, subject, subject_name, page):
         "model": [
             json.dumps(
                 {
-                    "term_cd": "23F",
+                    "term_cd": term,
                     "ses_grp_cd": "%",
                     "class_no": None,
                     "crs_catlg_no": None,
