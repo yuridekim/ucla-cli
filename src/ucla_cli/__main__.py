@@ -20,6 +20,7 @@ from ucla_cli.display.kv_sections import display_buildings
 from ucla_cli.get_course_summary import get_course_summary as imported_get_course_summary
 from ucla_cli.results import results
 from ucla_cli.clean import clean_course_summary
+from ucla_cli import section_details
 
 def extract_location(soup):
     location_columns = soup.find_all(class_="locationColumn")
@@ -129,7 +130,9 @@ def save_to_csv(term, subject, subject_name, courses, csv_filename=None):
         click.echo(click.style(f"Number: {first_course.get('number', 'N/A')}", fg='blue'))
         click.echo(click.style(f"Name: {first_course.get('name', 'N/A')}", fg='blue'))
     headers = ["Subject", "Subject Name", "Number", "Name", "Section ID", "Section Link",
-               "Status", "Waitlist", "Day", "Time", "Location", "Units", "Instructor"]
+           "Status", "Waitlist", "Day", "Time", "Location", "Units", "Instructor",
+           "Course Description", "Class Description Detail", "General Education GE", 
+           "Writing II Requirement", "Diversity Info", "Class Notes"]
     courses_with_links = sum(1 for course in courses if course.get("data", {}).get("section_link"))
     click.echo(click.style(f"Found {courses_with_links} out of {len(courses)} courses with section links for CSV", fg='green'))
     try:
@@ -153,7 +156,13 @@ def save_to_csv(term, subject, subject_name, courses, csv_filename=None):
                     " ".join(str(x).strip() for x in data.get("time", [])),
                     data.get("location", ""),
                     data.get("units", ""),
-                    data.get("instructor", "")
+                    data.get("instructor", ""),
+                    data.get("course_description", ""),
+                    data.get("class_description_detail", ""),
+                    data.get("general_education_ge", ""),
+                    data.get("writing_ii_requirement", ""),
+                    data.get("diversity_info", ""),
+                    data.get("class_notes", "")
                 ]
                 writer.writerow(row)
         click.echo(f"Courses exported to CSV file: {csv_filename}")
@@ -165,8 +174,6 @@ def save_to_csv(term, subject, subject_name, courses, csv_filename=None):
             click.echo(click.style(f"CSV validation: Found {links_in_csv} rows with section links in '{csv_filename}'", fg='green'))
     except Exception as e:
         click.echo(f"Error writing to CSV file: {e}")
-
-# --- Functions from File 2 (or modified) ---
 
 def extract_all_section_data(soup):
     sections = []
@@ -247,12 +254,33 @@ def display_course(subject, subject_name, number, name, data, orig_data, course_
     if not data:
         click.echo("  No detailed section information available.")
         return
+    
+    display_order = [
+        "status", "waitlist", "day", "time", "location", "units", "instructor", "section_id", "section_link",
+        "course_description", "class_description_detail", "general_education_ge", 
+        "writing_ii_requirement", "diversity_info", "class_notes"
+    ]
+
+    displayed_keys = set()
+
+    for key in display_order:
+        value = data.get(key)
+        if value and value != "N/A" and value != "N/A (No URL provided)" and value != "N/A (Failed to fetch page content)" and value != "N/A (Empty)":
+            if key in ["section_id", "section_link"]:
+                click.secho(f"  {key.replace('_', ' ').title()}: ", fg="yellow", nl=False)
+            else:
+                click.secho(f"  {key.replace('_', ' ').title()}: ", fg="green", nl=False)
+            
+            if isinstance(value, list):
+                click.secho(" ".join(map(str, value)).strip(), fg="white")
+            else:
+                click.secho(str(value).strip(), fg="white")
+            displayed_keys.add(key)
+
+    # Display any other keys not in display_order (if any)
     for key, value in data.items():
-        if key in ["section_id", "section_link"] and value:
-             click.secho(f"  {key.replace('_', ' ').title()}: ", fg="yellow", nl=False)
-             click.secho(str(value), fg="white")
-        elif value:
-            click.secho(f"  {key.replace('_', ' ').title()}: ", fg="green", nl=False)
+        if key not in displayed_keys and value and value != "N/A" and value != "N/A (No URL provided)" and value != "N/A (Failed to fetch page content)" and value != "N/A (Empty)":
+            click.secho(f"  {key.replace('_', ' ').title()}: ", fg="blue", nl=False)
             if isinstance(value, list):
                 click.secho(" ".join(map(str, value)).strip(), fg="white")
             else:
@@ -339,23 +367,37 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
                         "time": ["N/A"], "location": "N/A", "units": "N/A",
                         "instructor": "N/A", "section_id": None, "section_link": None, "class_id": model_data.get('classId')
                     }]
-                for i, section_data in enumerate(course_sections):
-                    class_id_from_section = section_data.get('class_id')
+                for i, section_data_item in enumerate(course_sections): 
+                    class_id_from_section = section_data_item.get('class_id')
                     if class_id_from_section and class_id_from_section in section_links_map:
-                        if not section_data.get('section_id'):
-                            section_data['section_id'] = section_links_map[class_id_from_section]['section_id']
-                        if not section_data.get('section_link'):
-                             section_data['section_link'] = section_links_map[class_id_from_section]['section_link']
-                             click.echo(click.style(f"Used fallback section link for {subject_code} {course_number} section {section_data.get('section_id', 'Unknown')}", fg='magenta'))
-                    if not section_data.get("section_link"):
+                        if not section_data_item.get('section_id'):
+                            section_data_item['section_id'] = section_links_map[class_id_from_section]['section_id']
+                        if not section_data_item.get('section_link'):
+                             section_data_item['section_link'] = section_links_map[class_id_from_section]['section_link']
+                             click.echo(click.style(f"Used fallback section link for {subject_code} {course_number} section {section_data_item.get('section_id', 'Unknown')}", fg='magenta'))
+                    
+                    details_from_link = {}
+                    if not section_data_item.get("section_link"):
                         section_link_missing_count += 1
-                        click.echo(click.style(f"Section link missing for: {subject_code} {course_number} - {course_name_part}, Section: {section_data.get('section_id', f'#{i+1}')}", fg='yellow'))
-                    orig_section_data = section_data.copy()
-                    cleaned_section_data = clean_course_summary(section_data, filters, mode)
-                    if orig_section_data.get('section_id'):
-                        cleaned_section_data['section_id'] = orig_section_data['section_id']
-                    if orig_section_data.get('section_link'):
-                        cleaned_section_data['section_link'] = orig_section_data['section_link']
+                        click.echo(click.style(f"Section link missing for: {subject_code} {course_number} - {course_name_part}, Section: {section_data_item.get('section_id', f'#{i+1}')}", fg='yellow'))
+                    else:
+                        details_from_link = section_details.extract_section_details_from_url(section_data_item["section_link"])
+                    
+                    section_data_item.update(details_from_link)
+
+                    orig_section_data = section_data_item.copy()
+                    cleaned_section_data = clean_course_summary(section_data_item, filters, mode)
+                    
+                    preserved_keys = [
+                        "section_id", "section_link", "course_description", "class_description_detail", 
+                        "general_education_ge", "writing_ii_requirement", "diversity_info", "class_notes"
+                    ]
+                    for key in preserved_keys:
+                        if orig_section_data.get(key):
+                            cleaned_section_data[key] = orig_section_data[key]
+                        elif not cleaned_section_data.get(key) and details_from_link.get(key): # If clean_course_summary removed it, but details_from_link had it
+                            cleaned_section_data[key] = details_from_link[key]
+
                     if csv_export:
                         all_courses_for_csv.append({
                             "number": course_number,
@@ -366,18 +408,25 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
                         section_display_label = f"Section {cleaned_section_data.get('section_id', str(i+1))}" if len(course_sections) > 1 else None
                         display_course(subject_code, subject_name, course_number, course_name_part,
                                        cleaned_section_data, orig_section_data, course_details, section_display_label)
-            else:
+            else: 
                 data_for_summary = {}
-                orig_data_for_summary = {}
+                orig_data_for_summary = {} 
                 class_id_from_model = model_data.get('classId')
+                current_section_link = None
                 if class_id_from_model and class_id_from_model in section_links_map:
                     data_for_summary['section_id'] = section_links_map[class_id_from_model]['section_id']
-                    data_for_summary['section_link'] = section_links_map[class_id_from_model]['section_link']
+                    current_section_link = section_links_map[class_id_from_model]['section_link']
+                    data_for_summary['section_link'] = current_section_link
+                
+                if csv_export and current_section_link:
+                    details_from_link = section_details.extract_section_details_from_url(current_section_link)
+                    data_for_summary.update(details_from_link)
+
                 if csv_export:
                     all_courses_for_csv.append({
                         "number": course_number,
                         "name": course_name_part,
-                        "data": data_for_summary
+                        "data": data_for_summary 
                     })
                 if not (csv_export and quiet_csv):
                     display_course(subject_code, subject_name, course_number, course_name_part,
