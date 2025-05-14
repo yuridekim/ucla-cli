@@ -422,20 +422,5 @@ def subject_area(ctx, subject_area, csv, quiet_csv):
 def rooms(term, building, room):
     cgs(term, building, room)
 
-# New test command
-@ucla.command(help="Test if the CLI is working properly")
-@click.option("-v", "--verbose", is_flag=True, help="Show verbose output")
-def test(verbose):
-    """Run a test to confirm the CLI is working correctly."""
-    if verbose:
-        cprint("UCLA CLI test command executed successfully!", "green")
-        cprint("Available commands:", "blue")
-        cprint("- classes: Search for classes offered in a term", "cyan")
-        cprint("- rooms: Get information about rooms", "cyan")
-        cprint("- test: Run this test command", "cyan")
-    else:
-        cprint("UCLA CLI is working correctly!", "green")
-
-
 if __name__ == "__main__":
     ucla()
