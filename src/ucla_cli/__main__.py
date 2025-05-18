@@ -120,7 +120,7 @@ def extract_course_data(soup):
 def save_to_csv(term, subject, subject_name, courses, csv_filename=None):
     if not csv_filename:
         subject_clean = "".join(c if c.isalnum() else "_" for c in subject.strip())
-        csv_filename = f"{term}_{subject_clean}.csv"
+        csv_filename = f"{term}/{term}_{subject_clean}.csv"
     if not courses:
         click.echo(f"No courses to export to CSV file.")
         return
