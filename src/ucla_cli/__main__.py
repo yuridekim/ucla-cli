@@ -291,19 +291,25 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
     def reduce_subject(x):
         return x.replace(" ", "").lower()
     subject_table_search = re.search(r"SearchPanelSetup\('(\[.*\])'.*\)", text)
-    if not subject_table_search:
-        click.echo(click.style("Could not find subject table in initial results.", fg='red'))
-        return
+    # if not subject_table_search:
+    #     click.echo(click.style("Could not find subject table in initial results.", fg='red'))
+    #     return
     subject_table_json = html.unescape(subject_table_search.group(1))
     subject_table = json.loads(subject_table_json)
     subject_name_table = {reduce_subject(x["value"]): x["label"] for x in subject_table}
     subject_code_table = {reduce_subject(x["value"]): x["value"] for x in subject_table}
     reduced_subj = reduce_subject(subject)
-    if reduced_subj not in subject_name_table:
+
+    ## afrcst is not included in spring 25
+    if reduced_subj == "afrcst":
+        subject_name = "African Studies"
+        subject_code = "AFRC ST"
+    elif reduced_subj not in subject_name_table:
         click.echo(click.style(f"Subject '{subject}' not found. Please use a valid subject area.", fg='red'))
         return
-    subject_name = subject_name_table[reduced_subj]
-    subject_code = subject_code_table[reduced_subj]
+    else:
+        subject_name = subject_name_table[reduced_subj]
+        subject_code = subject_code_table[reduced_subj]
     text = results(term, subject_code)
     soup = BeautifulSoup(text, 'html.parser')
     locations_options = soup.select("#Location_options option")
