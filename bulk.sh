@@ -25,8 +25,8 @@ while IFS= read -r line; do
   
   subject_code=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
   
-  filename_with_underscores=$(echo "$subject_code" | tr ' ' '_')
-  OUTPUT_FILE="$OUTPUT_DIR/${filename_with_underscores}.csv"
+  filename_safe=$(echo "$subject_code" | sed 's/[^a-zA-Z0-9]/_/g')
+  OUTPUT_FILE="$OUTPUT_DIR/${filename_safe}.csv"
   
   ((CURRENT++))
   

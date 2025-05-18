@@ -300,10 +300,21 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
     subject_code_table = {reduce_subject(x["value"]): x["value"] for x in subject_table}
     reduced_subj = reduce_subject(subject)
 
-    ## afrcst is not included in spring 25
+    # click.echo(f"Subject table: {subject_name_table}")
+
+    ## courses not included in summer 25
     if reduced_subj == "afrcst":
         subject_name = "African Studies"
         subject_code = "AFRC ST"
+    # elif reduced_subj == "anes":
+    #     subject_name = "Anesthesiology"
+    #     subject_code = "ANES"
+    elif reduced_subj == "appling":
+        subject_name = "Applied Linguistics"
+        subject_code = "APPLING"
+    elif reduced_subj == "art&arc":
+        subject_name = "Arts and Architecture"
+        subject_code = "ART&ARC"
     elif reduced_subj not in subject_name_table:
         click.echo(click.style(f"Subject '{subject}' not found. Please use a valid subject area.", fg='red'))
         return

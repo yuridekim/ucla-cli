@@ -94,8 +94,10 @@ def clean_day(day, mode):
     raise ValueError
         
 def clean_day_hacker(day):
-    if day == "Not scheduled":
+    if "Not scheduled" in day:
         return ""
+    if "Varies" in day:
+        return day
     if day == "Varies":
         return day
     if day.upper() != day or " " in day:
