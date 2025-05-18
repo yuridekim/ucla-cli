@@ -234,7 +234,7 @@ def extract_all_section_data(soup):
             })
     return sections
 
-def get_course_summary_for_all_sections(term, subject, model):
+def get_course_summary_for_all_sections(model):
     sum_soup = imported_get_course_summary(model)
     if not sum_soup:
         click.echo(click.style(f"Failed to get course summary HTML for model: {model.get('classId', 'Unknown ID')}", fg='red'))
@@ -330,6 +330,10 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
     last_page = False
     all_courses_for_csv = []
     section_link_missing_count = 0
+    
+    # Dictionary to store course descriptions for special course numbers
+    special_course_details = {}
+    
     while not last_page:
         click.echo(f"Fetching page {page} for {subject_name}...")
         text_page = course_titles_view(term, subject_code, subject_name, page)
@@ -343,6 +347,7 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
         if not models:
             click.echo("No course models found on this page. Ending search.")
             break
+        
         for course_id_str, model_data in models:
             title_element = soup_page.find(id=course_id_str + "-title")
             if not title_element or not title_element.contents:
@@ -357,14 +362,19 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
                 course_name_part = "N/A"
             course_number = course_number.strip()
             course_name_part = course_name_part.strip()
+            
+            # Check if this is a special course number (596, 597, 598, 599)
+            is_special_course = any(special_num in course_number for special_num in ['596', '597', '598', '599'])
+            
             if course_details:
                 max_retries = 3
                 retry_count = 0
                 course_sections = []
+                
                 while retry_count < max_retries:
                     try:
                         time.sleep(random.uniform(0.5, 2.0))
-                        course_sections = get_course_summary_for_all_sections(term, subject_code, model_data)
+                        course_sections = get_course_summary_for_all_sections(model_data)
                         break
                     except (ConnectionError, Timeout, RequestException) as e:
                         retry_count += 1
@@ -378,12 +388,17 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
                                 "time": ["Unknown"], "location": "Unknown", "units": "Unknown",
                                 "instructor": "Unknown", "section_id": None, "section_link": None, "class_id": model_data.get('classId')
                             }]
+                
                 if not course_sections:
                     course_sections = [{
                         "status": ["Unknown - Data Not Found"], "waitlist": "N/A", "day": "N/A",
                         "time": ["N/A"], "location": "N/A", "units": "N/A",
                         "instructor": "N/A", "section_id": None, "section_link": None, "class_id": model_data.get('classId')
                     }]
+                
+                # For special course numbers, we'll only fetch detailed info for the first section
+                shared_details = {}
+                
                 for i, section_data_item in enumerate(course_sections): 
                     class_id_from_section = section_data_item.get('class_id')
                     if class_id_from_section and class_id_from_section in section_links_map:
@@ -394,14 +409,36 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
                              click.echo(click.style(f"Used fallback section link for {subject_code} {course_number} section {section_data_item.get('section_id', 'Unknown')}", fg='magenta'))
                     
                     details_from_link = {}
+                    
+                    should_fetch_details = True
+                    
+                    if is_special_course:
+                        if i == 0:
+                            click.echo(click.style(f"Special course detected: {course_number}. Will fetch details only for first section.", fg='cyan'))
+                        else:
+                            should_fetch_details = False
+                            click.echo(click.style(f"Using cached details for {course_number} section {section_data_item.get('section_id', f'#{i+1}')}", fg='cyan'))
+                    
                     if not section_data_item.get("section_link"):
                         section_link_missing_count += 1
                         click.echo(click.style(f"Section link missing for: {subject_code} {course_number} - {course_name_part}, Section: {section_data_item.get('section_id', f'#{i+1}')}", fg='yellow'))
-                    else:
+                    elif should_fetch_details:
                         details_from_link = section_details.extract_section_details_from_url(section_data_item["section_link"])
+                        
+                        if is_special_course and i == 0:
+                            shared_details = {
+                                "course_description": details_from_link.get("course_description"),
+                                "class_description_detail": details_from_link.get("class_description_detail"),
+                                "general_education_ge": details_from_link.get("general_education_ge"),
+                                "writing_ii_requirement": details_from_link.get("writing_ii_requirement"),
+                                "diversity_info": details_from_link.get("diversity_info"),
+                                "class_notes": details_from_link.get("class_notes")
+                            }
+                    elif is_special_course and i > 0:
+                        details_from_link = shared_details
                     
                     section_data_item.update(details_from_link)
-
+                    
                     orig_section_data = section_data_item.copy()
                     cleaned_section_data = clean_course_summary(section_data_item, filters, mode)
                     
