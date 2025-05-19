@@ -19,9 +19,9 @@ def parse_time(t):
 def clean_time_hacker(time):
     if time == []:
         return ""
-    if time == ['To be arranged']:
+    if 'To be arranged' in time:
         return "?"
-    if time == ['-','-','-']:
+    if time[:3] == ['-', '-', '-']:
         return "?"
     if len(time) % 2 != 0:
         raise ValueError

@@ -315,6 +315,36 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
     elif reduced_subj == "art&arc":
         subject_name = "Arts and Architecture"
         subject_code = "ART&ARC"
+    elif reduced_subj == "eastds":
+        subject_name = "East Asian Studies"
+        subject_code = "EA STDS"
+    elif reduced_subj == "fiatlx":
+        subject_name = "Fiat Lux"
+        subject_code = "FIAT LX"
+    elif reduced_subj == "jewish":
+        subject_name = "Jewish Studies"
+        subject_code = "JEWISH"
+    elif reduced_subj == "law":
+        subject_name = "Law"
+        subject_code = "LAW"
+    elif reduced_subj == "ug-law":
+        subject_name = "Law (Undergraduate)"
+        subject_code = "UG-LAW"
+    elif reduced_subj == "med":
+        subject_name = "Medicine"
+        subject_code = "MED"
+    elif reduced_subj == "medhis":
+        subject_name = "Medical History"
+        subject_code = "MED HIS"
+    elif reduced_subj == "neursgy":
+        subject_name = "Medicine"
+        subject_code = "NEURSGY"
+    elif reduced_subj == "physiol":
+        subject_name = "Physiology"
+        subject_code = "PHYSIOL"
+    elif reduced_subj == "soctht":
+        subject_name = "Social Thought"
+        subject_code = "SOC THT"
     elif reduced_subj not in subject_name_table:
         click.echo(click.style(f"Subject '{subject}' not found. Please use a valid subject area.", fg='red'))
         return
