@@ -363,8 +363,8 @@ def soc(term, subject, course_details, mode, csv_export=False, quiet_csv=False):
             course_number = course_number.strip()
             course_name_part = course_name_part.strip()
             
-            # Check if this is a special course number (596, 597, 598, 599)
-            is_special_course = any(special_num in course_number for special_num in ['596', '597', '598', '599'])
+            # Check if this is a special course number (299, 596, 597, 598, 599)
+            is_special_course = any(special_num in course_number for special_num in ['299', '596', '597', '598', '599'])
             
             if course_details:
                 max_retries = 3
